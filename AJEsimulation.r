@@ -69,6 +69,7 @@
     #############################################################################
     
     ## Run causal forest model with cross-fitting
+    # ref. https://bookdown.org/halflearned/ml-ci-tutorial/hte-i-binary-treatment.html
     # Number of rankings that the predictions will be ranking on 
     # (e.g., 2 for above/below median estimated CATE, 5 for estimated CATE quintiles, etc.)
     library(grf)
@@ -158,17 +159,37 @@
     #assessing fit: the slope of the calibration line between predicted ARR and observed ARR.
     test_calibration(forest) 
     #hist(data$tau, main="CATE estimates", freq=F)
-    #The forest summary function test_calibration can be used to assess a forest?fs goodness of fit. 
     #A coefficient of 1 for mean.forest.prediction suggests that the mean forest prediction is correct
     #and a coefficient of 1 for differential.forest.prediction suggests that the forest has captured heterogeneity in the underlying signal.
-    
+
+
+    #Partial dependence plot
+    trialdata$tau.hat = tau.hat
+    trialdata %>% 
+    ggplot(aes(x = N, y = tau.hat)) +
+    geom_point(size = 0.05) +
+    theme_bw() +
+    ylab("Estimated CATE")
+
+    #Heatmap
+    trialdata %>% 
+    mutate(N.41 = ifelse(N>=41,1,0),
+           N.41 = as.factor(N.41),
+           B    = as.factor(B)) %>% 
+    group_by(N.41,B) %>% 
+    summarise(mean = mean(tau.hat), sd = sd(tau.hat)) %>% 
+    mutate(result = paste0("Mean CATE: ",signif(mean,3),"\n","(SD: ",signif(sd,3),")")) %>% 
+    ggplot(aes(x = N.41, y = B)) +
+    geom_tile(aes(fill = mean)) +
+    geom_text(aes(label = result)) +
+    scale_fill_gradient2(name = "Mean CATEs") +
+    theme_bw() +
+    xlab("N ≥ 41")
+
     #Estimating rank average treatment effect
     rate <- rank_average_treatment_effect(forest, tau.hat, target = "AUTOC")
-    
     #AUTOC and Qini coefficient
     rate
     rate$estimate + data.frame(lower = -1.96 * rate$std.err, upper = 1.96 * rate$std.err, row.names = rate$target)
-    
     # Plot the Targeting Operator Characteristic (TOC) curve.
     plot(rate, xlab="Treated fraction",main="TOC\ntau(X) with cross-fitting")
-    
