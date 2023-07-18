@@ -186,16 +186,26 @@
     theme_bw() +
     xlab("N ≥ 41")
 
-    #Estimate Rank-Weighted Average Treatment Effect (https://grf-labs.github.io/grf/reference/rank_average_treatment_effect.html)
+   #Estimate Rank-Weighted Average Treatment Effect 
+    #Please see the original description in the package (https://grf-labs.github.io/grf/reference/rank_average_treatment_effect.html)
+    rate <- rank_average_treatment_effect(forest, tau.hat, target = "AUTOC") #Cross-fitting was done by splitting the entire sample into folds and using one fold to make predictions based on the causal forest algorithm trained with the remaining folds.
+    #AUTOC and Qini coefficient
+    rate
+    rate$estimate + data.frame(lower = -1.96 * rate$std.err, upper = 1.96 * rate$std.err, row.names = rate$target)
+    # Plot the Targeting Operator Characteristic (TOC) curve.
+    plot(rate, xlab="Treated fraction according to CATEs",ylab="Difference in treatment effects", main="Targeting operator characteristics")
+    
+    #Estimate Rank-Weighted Average Treatment Effect via sample splitting so that treatment prioritization scores 
+    #are constructed independently from the evaluation forest training data for valid statistical performance.
     set.seed(123)
     n<-nrow(trialdata)
-    train <- sample(1:n, n / 2) #Treatment prioritization scores should be constructed independently from the evaluation forest training data for valid statistical performance.
+     train <- sample(1:n, n / 2)
     cf.priority <- causal_forest(X[train, ], Y[train], W[train])
     # Compute a prioritization based on estimated treatment effects.
-    priority.cate <-  predict(cf.priority, X[-train, ])$predictions  
+    priority.cate <-  predict(cf.priority, X[-train, ])$predictions
     # Estimate AUTOC on held out data.
     cf.eval <- causal_forest(X[-train, ], Y[-train], W[-train])
     rate <- rank_average_treatment_effect(cf.eval, priority.cate)
-    rate    
+    rate
     # Plot the Targeting Operator Characteristic (TOC) curve.
     plot(rate, xlab="Treated fraction according to CATEs",ylab="Difference in treatment effects", main="Targeting operator characteristics")
