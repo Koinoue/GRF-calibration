@@ -186,10 +186,16 @@
     theme_bw() +
     xlab("N ≥ 41")
 
-    #Estimating rank average treatment effect
-    rate <- rank_average_treatment_effect(forest, tau.hat, target = "AUTOC")
-    #AUTOC and Qini coefficient
-    rate
-    rate$estimate + data.frame(lower = -1.96 * rate$std.err, upper = 1.96 * rate$std.err, row.names = rate$target)
+    #Estimate Rank-Weighted Average Treatment Effect (https://grf-labs.github.io/grf/reference/rank_average_treatment_effect.html)
+    set.seed(123)
+    n<-nrow(trialdata)
+    train <- sample(1:n, n / 2) #Treatment prioritization scores should be constructed independently from the evaluation forest training data for valid statistical performance.
+    cf.priority <- causal_forest(X[train, ], Y[train], W[train])
+    # Compute a prioritization based on estimated treatment effects.
+    priority.cate <-  predict(cf.priority, X[-train, ])$predictions  
+    # Estimate AUTOC on held out data.
+    cf.eval <- causal_forest(X[-train, ], Y[-train], W[-train])
+    rate <- rank_average_treatment_effect(cf.eval, priority.cate)
+    rate    
     # Plot the Targeting Operator Characteristic (TOC) curve.
-    plot(rate, xlab="Treated fraction",main="TOC\ntau(X) with cross-fitting")
+    plot(rate, xlab="Treated fraction according to CATEs",ylab="Difference in treatment effects", main="Targeting operator characteristics")
